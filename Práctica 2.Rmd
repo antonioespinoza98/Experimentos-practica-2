@@ -1,0 +1,718 @@
+---
+title: "PRINCIPIOS DE DISEÑOS EXPERIMENTALES"
+subtitle: "PRACTICA No.2"
+output:
+  html_document: 
+    highlight: tango
+    theme: cerulean
+editor_options: 
+  chunk_output_type: console
+---
+
+## Refrescos
+
+Una empresa embotelladora de refrescos está interesada en obtener alturas de llenado más uniformes en las botellas que se fabrican en su proceso de manufactura. Teóricamente, la máquina de llenado llena cada botella a la altura objetivo correcta, pero en la práctica, existe variación en torno a este objetivo, y a la embotelladora le gustaría entender mejor las fuentes de esta variabilidad y, en última instancia, reducirla. El ingeniero del proceso puede controlar tres variables durante el proceso de llenado:
+
+-   el porcentaje de carbonatación,
+
+-   la presión de operación en el llenador y
+
+-   las botellas producidas por minuto o rapidez de línea.
+
+Es sencillo controlar la presión y la rapidez, pero el porcentaje de carbonatación es más difícil de controlar durante la manufactura real debido a que varía con la temperatura. Por lo tanto los factores de diseño son la presión y la rapidez. Para los fines de un experimento, el ingeniero puede controlar la carbonatación en tres niveles: 10, 12 y 14%. Elige dos niveles para la presión (25 y 30psi) y dos niveles para la rapidez de línea (200 y 250bpm). El ingeniero decide correr dos réplicas de un diseño factorial con estos tres factores, haciendo las 24 corridas de manera aleatoria.\
+La variable respuesta observada es la desviación promedio absoluta de la altura del llenado objetivo que se observa en una corrida de producción de botellas con cada conjunto de condiciones. Las desviaciones positivas son alturas de llenado promedio en la corrida arriba del objetivo, mientras que las negativas son alturas de llenado promedio abajo del objetivo. Sin embargo, interesa solo la desviación absoluta (d2).
+
+### Ejercicios
+
+1.  Usando como respuesta la desviación absoluta (d2):
+
+-   Analice las interacciones de primer orden (dobles) para cada par de factores. Haga un análisis gráfico. Es importante que decida bien cuál factor se pone en el eje X.
+
+```{r}
+load('refrescos.Rdata')
+```
+
+```{r}
+library(lattice)
+
+names(base)
+summary(base)
+base$carbonatacion <- factor(base$carbonatacion)
+base$presion <- factor(base$presion)
+base$rapidez <- factor(base$rapidez)
+
+xyplot(d2 ~ carbonatacion, group = presion, type = c('r','p'), auto.key = list(columns = 2), main = 'Presión por carbonatación', base)
+
+
+xyplot(d2 ~ carbonatacion, group = rapidez, type = c('r','p'), auto.key = list(columns = 2), main = 'rapidez por carbonatación', base)
+
+xyplot(d2 ~ rapidez, group = presion, type = c('r','p'), auto.key = list(columns = 2), main = 'Presión por rapidez', base)
+
+
+
+```
+
+-   Debe decir si espera que exista interacción en cada caso y por qué.
+
+    -   No esperaría interación, esto debido a que las líneas son bastante parecidas, tal vez en el caso de carbonatación puede que haya pero con la prueba se confirma.
+
+-   A partir de los tres gráficos obtenidos anteriormente obtenga conclusiones preliminares sobre los efectos de los factores de diseño.
+
+-   parece ser que para presión por carbonatación, en una concetración del 10% hay un efecto parecido para los tipos de presión, mientras que para la carbonació al 14%, para una presión de 25 y 30 son muy distintas. -Rapidez no parece tener un efecto que dependa de presión y carbonación
+
+2.  Tome solamente las variables carbonatación y presión. Escriba un modelo con aov que considere la interacción entre los factores.
+
+```{r}
+mod1 = aov(d2 ~ carbonatacion*presion, data = base)
+```
+
+-   Obtenga las estimaciones de los efectos simples y de interacción usando model.tables.
+
+```{r}
+model.tables(mod1)
+```
+
+-   A partir de los promedios adecuados, estime manualmente los efectos simples de presión y carbonatación. Compárelos con la tabla que da R.
+
+```{r}
+media_general = mean(base$d2)
+
+efect_simpl_pres = tapply(base$d2, base$presion, mean)
+
+efect_simpl_car =tapply(base$d2, base$carbonatacion, mean)
+
+beta = efect_simpl_pres - media_general
+
+alpha = efect_simpl_car - media_general
+```
+
+-   Estime manualmente los efectos de interacción. Compárelos con la tabla de R.
+
+$$\mu_{ij}= \mu + \alpha_i + \beta_j$$
+
+```{r}
+
+medias_ob = tapply(base$d2, list(base$carbonatacion, base$presion), mean)
+
+m.sin11 = media_general + alpha[1] + beta[1]
+m.sin21 = media_general + alpha[2] + beta[1]
+m.sin31 = media_general + alpha[3] + beta[1]
+
+m.sin12 = media_general + alpha[1] + beta[2]
+m.sin22 = media_general + alpha[2] + beta[2]
+m.sin32 = media_general + alpha[3] + beta[2]
+
+comp = matrix(nrow = 3, ncol = 2, dimnames = list('carbonatación' = c('10%','12%','14%'), 'presión' = c('25', '30')))
+
+comp[1,1] = medias_ob[1,1] - m.sin11
+comp[2,1] = medias_ob[2,1] - m.sin21
+comp[3,1] = medias_ob[3,1] - m.sin31
+
+comp[1,2] = medias_ob[1,2] - m.sin12
+comp[2,2] = medias_ob[2,2] - m.sin22
+comp[3,2] = medias_ob[3,2] - m.sin32
+
+comp
+```
+
+-   Haga el cálculo de la Suma de Cuadrados y el Cuadrado Medio de Presión.
+
+```{r}
+table(base$presion)
+
+SCPres = 12*sum(beta^2)
+CMPres = SCPres/1
+```
+
+-   Haga el cálculo de la Suma de Cuadrados y el Cuadrado Medio de Carbonatación.
+
+```{r}
+table(base$carbonatacion)
+
+SCCar = 8*sum(alpha^2)
+SMCar = SCCar/2
+
+```
+
+-   Qué representa cada uno de estos números?
+
+-   Para el caso presión, representa la variación que existe entre los promedio de los niveles de presión, al igual que en el caso de carbonatación, la variación que existe entre los diferentes porcentajes.
+
+-   Usando las interacciones calculadas previamente, haga el cálculo de la Suma de Cuadrados y el Cuadrado Medio de interacción.
+
+```{r}
+(SCInt = 4*sum(comp^2))
+(CMInt = SCInt/2)
+```
+
+------------------------------------------------------------------------
+
+-   Calcule el Cuadrado Medio Residual a partir de las variancias de los tratamientos. Interprete este valor.
+
+```{r}
+v = mean(tapply(base$d2, list(base$carbonatacion, base$presion), var))
+```
+
+  - Este valor es un estimador de la variancia condicional de la respuesta *dentro* de cada tratamiento, asumiendo homocedasticidad 
+
+-   Compare este valor con el que da la tabla del análisis de variancia.
+
+```{r}
+anova(mod1)
+```
+
+  - Estos valores son exactamente los mismos
+
+-   Escriba la hipótesis nula referente a la interacción con símbolos y con palabras.
+
+  - El efecto que tiene la presión sobre la respuesta promedio es la misma para todos los niveles de carbonatación
+  
+$$H_o : (\alpha \beta)_{ij} = 0$$
+
+-   Haga la prueba de esta hipótesis.
+
+```{r}
+anova(mod1)
+```
+
+  - La probabilidad asociada es de 0.02, por lo cual se rechaza la hipótesis de no interacción y se asume que el efecto que tiene la presión sobre la respuesta promedio es diferente para todos los niveles de carbonatación.
+
+-   Dé una estimación de los promedios de cada tratamiento.
+
+  - Puesto que hay interacción, la estimación de los promedios de cada tratamiento es la misma que los promedios estimados. 
+  
+```{r}
+options(contrasts = c('contr.sum','contr.poly'))
+
+mod2 = lm(d2 ~ carbonatacion*presion, base)
+
+b = mod2$coef
+
+```
+
+```{r}
+contrasts(base$carbonatacion)
+
+contrasts(base$presion)
+```
+
+```{r}
+
+matrix = model.matrix(mod2)
+
+c11 = c(1,1,0,1,1,0)
+c21 = c(1,0,1,1,0,1)
+c31 = c(1,-1,-1,1,-1,-1)
+
+c12 = c(1,1,0,-1,-1,0)
+c22 = c(1,0,1,-1,0,-1)
+c32 = c(1,-1,-1,-1,1,1)
+
+
+cont = cbind(c11,c21,c31,c12,c22,c32) 
+
+medias_estim_pres = t(cont) %*% b
+
+```
+
+
+-   Construya los contrastes adecuados y haga las pruebas de hipótesis para estos contrastes.
+
+```{r}
+#primero vamos a construir los contrastes
+dif1 = c11 - c12
+dif2 = c22 - c21
+dif3 = c32 - c31
+
+contri = cbind(dif1,dif2,dif3)
+
+L = t(contri) %*% b
+
+ee = sqrt(diag(t(contri) %*% vcov(mod2) %*% contri))
+
+q = L/ee
+
+(p = pt(q, 18, lower.tail = F))
+
+```
+
+   - Con un nivel de confianza se rechaza la primera y la segunda hipótesis, hay diferencias para los niveles de carbonatación de 12% y 14%
+
+-   Construya los intervalos de confianza adecuados.
+
+```{r}
+t = qt(0.975, 18) 
+
+L[2:3] - t * ee[2:3]
+```
+
+
+-   Dé una conclusión del efecto del factor de diseño en este caso.
+
+  - Se va a preferir un nivel de 25psi pues baja la desviación promedio. Sin Embargo, para 12% la disminución que produce puede resultar no relevante según lo que haya establecido el ingeniero. 
+
+-   Escriba el modelo usando lm y obtenga las estimaciones de los coeficientes del summary. Dé una interpretación de todos los coeficientes.
+
+```{r}
+b
+```
+
+  - El primero corresponde a la media general, los otros son los efectos simples de cabonatación y los demás son los de interacción, estos se le restan a los observados para determinar cuanto falta para no tener interacción. 
+
+
+3.  Tome solamente las variables carbonatación y rapidez. Escriba un modelo con aov que considere la interacción entre los factores.
+
+```{r}
+names(base)
+
+mod3 = aov(d2 ~ carbonatacion*rapidez, data = base)
+```
+
+
+-   Obtenga las estimaciones de los efectos simples y de interacción usando model.tables.
+
+```{r}
+model.tables(mod3)
+```
+
+
+-   A partir de los promedios adecuados, estime manualmente los efectos simples de rapidez y carbonatación. Compárelos con la tabla que da R. Compare el efecto de carbonatación con el obtenido en el punto 2.
+
+```{r}
+medias_rap = tapply(base$d2, base$rapidez, mean)
+
+
+
+beta = medias_rap - media_general
+
+alpha = alpha = efect_simpl_car - media_general
+
+```
+
+
+-   Estime manualmente los efectos de interacción. Compárelos con la tabla de R.
+
+```{r}
+table(base$carbonatacion,base$rapidez)
+
+medias_ob = tapply(base$d2, list(base$carbonatacion, base$rapidez), mean)
+
+m.sin11 = media_general + alpha[1] + beta[1]
+m.sin21 = media_general + alpha[2] + beta[1]
+m.sin31 = media_general + alpha[3] + beta[1]
+
+m.sin12 = media_general + alpha[1] + beta[2]
+m.sin22 = media_general + alpha[2] + beta[2]
+m.sin32 = media_general + alpha[3] + beta[2]
+
+
+comp = matrix(nrow = 3, ncol = 2, dimnames = list('carbonatación' = c('10%','12%','14%'), 'rapidez' = c('200', '250')))
+
+comp[1,1] = medias_ob[1,1] - m.sin11
+comp[2,1] = medias_ob[2,1] - m.sin21
+comp[3,1] = medias_ob[3,1] - m.sin31
+
+comp[1,2] = medias_ob[1,2] - m.sin12
+comp[2,2] = medias_ob[2,2] - m.sin22
+comp[3,2] = medias_ob[3,2] - m.sin32
+
+comp
+
+
+```
+
+
+-   Usando los promedios adecuados, haga el cálculo de la Suma de Cuadrados y el Cuadrado Medio de Rapidez.
+
+```{r}
+table(base$rapidez)
+
+12*sum(beta^2)
+
+(12*sum(beta^2))/1
+
+```
+
+
+-   Usando las interacciones calculadas previamente, haga el cálculo de la Suma de Cuadrados y el Cuadrado Medio de interacción.
+
+
+```{r}
+sum(4*comp^2)
+
+(sum(4*comp^2))/2
+
+```
+
+
+------------------------------------------------------------------------
+
+-   Calcule el Cuadrado Medio Residual a partir de las variancias de los tratamientos. Interprete este valor.
+
+```{r}
+vari = tapply(base$d2, list(base$carbonatacion, base$rapidez), var)
+
+mean(vari)
+```
+
+  - Es una estimación de la variancia condicional de la respuesta dentro de cada tratamiento asumiendo homocedasticidad
+  
+-   Compare este valor con el que da la tabla del análisis de variancia.
+
+```{r}
+anova(mod3)
+```
+
+  - Es el mismo valor porque se usa un modelo saturado
+
+-   Escriba la hipótesis nula referente a la interacción con símbolos y con palabras.
+
+  - El efecto que tiene la rapidez sobre la respuesta es el mismo para todos los niveles de carbonatación
+
+$$H_o: (\alpha \beta)_{ij} = 0$$
+
+-   Haga la prueba de esta hipótesis.
+
+```{r}
+anova(mod3)
+```
+
+  - Con una probabilidad asociada de 0.66, no rechazamos la hipótesis alternativa de que el efecto de rapidez sea el mismo para todos los niveles de carbonatación. 
+
+-   Pase al modelo adecuado.
+
+```{r}
+names(base)
+
+mod4 = lm(d2 ~ carbonatacion + rapidez, data = base)
+
+```
+
+
+-   Dé una estimación de los promedios de cada tratamiento.
+
+```{r}
+#revisamos los contrastes
+#para pasar a suma nula
+options(contrasts = c("contr.sum","contr.poly"))
+#para volver a tratamiento
+options(contrast = c("contr.treatment", "contr.poly"))
+
+contrasts(base$carbonatacion)
+contrasts(base$rapidez)
+
+```
+
+
+```{r}
+matrix = model.matrix(mod4)
+
+c11 = c(1,1,0,1)
+c21 = c(1,0,1,1)
+c31 = c(1,-1,-1,1)
+
+c12 = c(1,1,0,-1)
+c22 = c(1,0,1,-1)
+c32 = c(1,-1,-1,-1)
+
+cont = cbind(c11,c21,c31,c12,c22,c32)
+
+b = mod4$coefficients
+
+medias_estim_ras = t(cont) %*% b
+
+matrix(c(medias_estim_ras, medias_ob), ncol = 2, nrow = 6, dimnames = list('Contraste' = c('10% y 200','12% y 200', '14% y 200', '10% y 250','12% y 250', '14% y 250'), 'Tipo' = c('Estimado', 'Observado') ))
+```
+  
+
+-   Represente gráficamente estos promedios y comente lo que observa. Comente la relación que hay entre estos promedios estimados y los observados.
+
+```{r}
+estim = matrix(medias_estim_ras, ncol = 2)
+matplot(estim, pch = 'e', ylim = c(-1,10))
+
+matpoints(medias_ob, pch = 'o')
+
+```
+
+
+  - La diferencia que hay con respecto a los observados es muy pequeña, lo que confirma que la interacción era poco signifitiva. 
+
+-   Observe el CMResidual en este nuevo modelo y explique por qué no coincide con la media de las variancias.
+
+```{r}
+anova(mod4)[3,3]
+```
+
+  - La razon por la que no coinciden es porque ahora la variancia se calcula con respecto a nuevas estimaciones de los promedios mientras que las variancias observadas están calculadas respecto a los promedios observados. La variancia buena es la que se calcula bajo el modelo sin interacción
+
+-   Escriba la hipótesis nula referente al efecto del factor de diseño con símbolos y con palabras.
+
+$$\mu_1 = \mu_2$$
+
+La rapidez no tiene ningún efecto sobre la respuesta promedio independientemente del nivel de carbonatación
+
+-   Pruebe la hipótesis.
+
+```{r}
+anova(mod4)
+```
+
+  - Con una probabilidad asociada de 0.004 se rechaza la hipótesis y se concluye que si hay diferencias en los promedios de la desviación absoluta promedio entre los dos niveles de rapidez
+
+
+-   Haga el intervalo de confianza adecuado.
+
+```{r}
+tapply(base$d2, base$rapidez, mean)
+
+c1 = c(1, 0,0,-1) - c(1,0,0,1)
+
+L = t(c1) %*% b
+
+L
+
+```
+
+```{r}
+
+ee = sqrt(t(c1) %*% vcov(mod4) %*% c1)
+
+qt = qt(0.95, 20)
+
+lim = L - qt * ee
+
+
+```
+
+
+-   Dé una conclusión del efecto del factor de diseño en este caso.
+
+  - Con un 95% de confianza, se espera que el promedio de la desviación absoluta cuando se usa rapidez 200 bpm sea al menos 1.14 menor que cuando se usa 250 bpm
+
+
+4.  Haga un modelo con todas las interacciones dobles.
+
+```{r}
+mod5 = lm(d2 ~ carbonatacion*presion + carbonatacion*rapidez + rapidez*presion, data = base)
+```
+
+
+-   Observe los grados de libertad de cada fuente de variación y justifique cada número.
+
+```{r}
+anova(mod5)
+```
+
+  - Carbonatación tiene 2 g.l porque son 3 niveles, presión tene 1 g.l porque son 2 niveles. 
+  - las interacciones son los productos de los g.l de los dos factores que lo componen. 
+  - Los residuales tienen 14g.l porque es el resultado de restarle a 23 los grados de todos los factores e interacciones
+
+-   Obtenga la media de las variancias de todos los tratamientos.
+
+```{r}
+vari = tapply(base$d2, list(base$carbonatacion, base$presion, base$rapidez), var)
+
+mean(vari)
+
+```
+
+
+-   Observe el CMResidual y vea que no coincide con la media de las variancias de los tratamientos. ¿Por qué?
+
+```{r}
+mean(vari)
+
+anova(mod5)[7,3]
+```
+
+  - No son lo mismo porque el modelo no es saturado y los promedios estimados ya no son iguales a los observados. 
+
+-   Obtenga las estimaciones de los efectos principales e interacciones usando model.table y compárelos con los obtenidos en los puntos anteriores. ¿Cambian?
+
+```{r}
+model.tables(aov(mod5))
+```
+
+  - Se obtienen los mismos efectos que los anteriores.
+
+5.  Evaluación de interacciones de primer orden:
+
+-   ¿Cuál es la primera interacción que puede asumirse como nula?
+
+```{r}
+drop1(mod5, test = 'F')
+
+#se elimina presión:rapidez
+```
+
+
+-   Elimine esa interacción y continúe el proceso para decidir si puede asumir que otras interacciones son nulas.
+
+```{r}
+mod6 = aov(d2 ~ carbonatacion*presion + carbonatacion*rapidez, base)
+
+drop1(mod6, test = 'F')
+
+#se elimina carbonatación con rapidez
+
+mod7 = aov(d2 ~ carbonatacion*presion + rapidez, base)
+
+drop1(mod7, test = 'F')
+
+```
+
+
+
+-   En el modelo final sólo se pueden hacer supuestos sobre las interacciones pero nunca se pueden eliminar los factores principales.
+
+  - En el modelo final se asume que no hay interaccion entre rapidez y los otros dos factores
+  
+-   Escriba el modelo final.
+
+$$\mu_{ijk} = \mu + \alpha_i + \beta_j + \gamma_k + (\alpha \beta)_{ij}$$
+
+6.  Usando el modelo final haga las pruebas e intervalos de confianza pertinentes:
+
+-   ¿De qué forma se pueden analizar los efectos de Rapidez?
+
+  - Se pueden analizar los efectos de rapidez sobre la respuesta promedio, pero sin considerar la carbonatación y la presión. 
+  
+```{r}
+anova(mod7)[3,]
+```
+
+  - La probabilidad asociada es muy pequeña, por lo que se concluye que hay un efecto global de la rapidez
+  
+```{r}
+tapply(base$d2, base$rapidez, mean)
+
+mod7$coefficients
+
+c200 = c(1,0,0,0,1,0,0)
+c250 = c(1,0,0,0,-1,0,0)
+
+c1 = c250 - c200
+L = t(c1) %*% mod7$coefficients
+
+L
+
+```
+
+```{r}
+ee = sqrt(t(c1) %*% vcov(mod7) %*% c1)
+
+qtt = qt(0.95, 17)
+
+lim = L - qt*ee
+
+lim
+```
+
+  - Con un 95% de confianza se espera que con una rapidez de 200 bpm, la desviación absoluta sea al menos 1.93 menor que cuando se usa 250 bpm
+
+-   ¿De qué forma se pueden analizar los efectos de Presión?
+
+-   ¿Interesa analizar los efectos de Carbonatación?
+
+7.  Obtenga los promedios estimados con el modelo reducido usando los coeficientes estimados y la matriz de estructura. Verifique sus resultados con la función "predict".
+
+-   En este experimento se tienen 12 tratamientos, pero se obtienen 24 estimaciones de los promedios. Esto significa que cada promedio está repetido 2 veces porque hay 2 réplicas por tratamiento. Obtenga las estimaciones de los promedios para los 12 tratamientos sin repetir.
+
+-   Compare sus resultados con los promedios observados.
+
+-   ¿Por qué los observados y los estimados no coinciden?
+
+## Salsas
+
+Una diseñadora de productos gourmet tiene como objetivo determinar el nivel de picante (suave, medio y fuerte) que tiene mayor satisfacción en promedio. Sus pruebas las realiza con dos tipos de tomate como base (cherry y pera).
+
+El interés del experimento es decidir cuál nivel incrementa la satisfacción de los consumidores potenciales, para esto hace un estudio con personas que gustan de productos alimenticios especializados.
+
+La variable respuesta es un índice de satisfacción calculado a partir de 8 preguntas en una escala de 0 al 10. El índice es simplemente el promedio de los puntajes de las 8 preguntas para cada persona.
+
+En total se trabajó con 8 personas (hombres y mujeres entre 20 y 40 años) y a cada una se le dio a probar todos los tipos de salsa que consistía en la combinación de picante y tipo de tomate.
+
+La diseñadora espera que una diferencia de medio punto entre dos medias sea suficiente para demostrar que una salsa es más satisfactoria que otra.
+
+Los datos se encuentran en el archivo "salsa3.Rdata".
+
+### Ejercicios
+
+1.  Si el objetivo del estudio es analizar solamente el efecto del nivel de picante y su interacción con el tipo de tomate, ¿sería necesario incluir el sexo y la edad de cada persona en el modelo? ¿Por qué?
+
+-   Si además se quiere saber si el efecto del tipo de picante es diferente según sexo, ¿qué tipo de diseño se tendría que hacer?
+
+-   Si se asume que no hay interacción entre tipo de picante y sexo, pero se quiere saber si la salsa es de más agrado a hombres o a mujeres, ¿qué tipo de diseño se tendría que hacer? ¿Qué cambia en este caso con respecto al inciso anterior?
+
+2.  Represente los datos mediante un gráfico de líneas para analizar si se puede esperar que haya un efecto del nivel de picante.
+
+-   A partir del gráfico, ¿considera que las personas son diferentes entre sí en cuanto al puntaje que dan a las salsa?
+
+3.  Represente los datos mediante un boxplot para analizar si se puede esperar que haya un efecto del nivel de picante, sin olvidar que también se cuenta con el otrio factor (tipo de tomate). ¿Por qué es importante hacer el gráfico considerando también el tipo de tomate?
+
+-   Compare el gráfico correcto (con datos centrados) con el gráfico incorrecto (puntajes originales).
+
+4.  Obtenga la Suma de Cuadrados Total directamente de la variable respuesta.
+
+-   Haga un modelo con picante y tomate solamente (con interacción) y verifique que la suma de cuadrados total coincide con la obtenida anterioremente.
+
+-   Obtenga manualmente los efectos simples de picante y tomate. Verifique sus resultados comparando con los coeficientes del modelo anterior (suma nula)
+
+-   Obtenga manualmente la suma de cuadrados de cada factor.
+
+-   Haga un modelo donde incluya la persona como bloque y además la interacción entre picante y tomate. verifique que la suma de cuadrados total se mantiene.
+
+-   Obtenga manualmente la suma de cuadrados de bloques
+
+5.  Obtenga la media de las variancias de los 6 tratamientos y compárela con el CMRes del modelo con interacción (sin bloques)
+
+-   Obtenga el cuadrado medio residual a partir de la suma de cuadrados total, cuando se considera picante, tomate, interacción entre ambos y bloques.
+
+-   Cuántos parámetros tiene el modelo con interacción y bloques?
+
+-   Usando el número de parámetros del modelo, obtenga los grados de libertad residuales.
+
+6.  Verifique que no hay interacción. ¿Qué implicaciones tiene este resultado para el análisis posterior?
+
+7.  Si se considera que es mejor que una persona no pruebe varios tipos de salsa sino una sola, explique cómo se debe ejecutar el experimento en este caso.
+
+-   ¿Cuántas personas se necesitarían para asegurar que se logre el mismo nivel de información que dio este experimento?
+
+-   ¿Qué tendría que pasar para que el número de personas que se necesiten si se hace el experimento de esta forma sea igual a 48, es decir, el mismo número de datos que en el experimento actual? Justifique.
+
+## Mariposas
+
+Se quiere determinar el efecto de la altura (dosel o sotobosque) sobre la presencia de mariposas en dos especies (Colobura dirce y Dioristes tauropolis). Se tomaron 4 árboles separados donde se pusieron trampas.\
+En cada árbol se pusieron 2 trampas: una se situó en el dosel, y la otra en un pequeño espacio de luz inmediatamente bajo la primera (sotobosque). Al cabo de cierto tiempo se visitaron las trampas y se registró el número de individuos de cada especie en cada trampa. Se hicieron 4 visitas a cada trampa, una vez por semana.\
+Se trata de un experimento con dos factores, cada uno con dos niveles y 16 réplicas para cada tratamiento. Se tienen en total 2x2x16=64 observaciones.
+
+Los datos se encuentran en el archivo `Mariposas2.csv`.
+
+### Ejercicios
+
+1.  Lea los datos y defina una nueva variable llamada bloque que consista en el árbol + la semana de visita. Para esto puede usar la función `paste` de la siguiente forma: `paste(variable1,variable2)`. Adeemás verifique que la variable `bloque`, `tipo`, `altura` y `especie` sean factores.
+
+2.  Haga un gráfico de líneas para observar si hay diferencias entre bloques, ponga los bloques en el eje X y use la combinación de especie y altura en `groups` poniendo `groups=paste(altura,especie)`. También puede hacer un gráfico de puntos colocando las medias de la frecuencia por bloque.
+
+3.  Centre los datos de frecuencia y haga gráficos de cajas con la frecuencia original y centrada poniendo en el eje X `altura+especie`. Asegúrese de que ambos gráficos tiene la misma escala en el eje Y. Comente.
+
+4.  Haga el análisis de varianza para probar si hay interacción entre altura y especie, tomando en consideración el bloque.
+
+-   Haga el análisis de varianza para probar si hay interacción entre altura y especie pero no tome en consideración el bloque. Compare el CMRes de este análisis con el anterior. Explque qué está pasando.
+
+5.  Ahora vamos a tomar en cuenta la variable llamada `tipo`. Esta variable clasifica los árboles según la ubicación en el bosque, que puede ser en la sombra o en la luz. Por lo tanto, ahora tiene un nuevo factor, pero los árboles pueden estar solo en una de las dos ubicaciones, por lo que este diseño se convierte en parcelas divididas.
+
+-   ¿Cuál es el factor de parcela?
+
+-   ¿Cuáles son los factores de subparcela?
+
+-   Analice gráficamente si se puede esperar interacción entre altura y tipo, así como entre especie y tipo.
+
+6.  Escriba un modelo mixto con las interacciones entre altura y especie, tipo y altura, y finalmente tipo y especie. Recuerde que el bloque es el elemento aleatorio.
+
+-   Para obtener los grados de libertad para el error de parcela, correspondiente a tipo, debe multiplicar a(r-1), donde a es el número de niveles de tipo, y r es el número de repeticiones dentro de cada tipo para cada tratamiento. Obtenga los grados de libertad de parcela.
+
+-   Para obtener los grados de libertad residuales puede seguir el siguiente truco. Haga un modelo equivalente al anterior pero normal, sin bloques, tome los grados de libertad residuales de ese modelo y reste los grados de libertad del error de parcela.
+
+-   Verifique las hipótesis relativas a las interacciones.
